@@ -1,12 +1,17 @@
 import { betterAuth } from "better-auth"
-import Database from "better-sqlite3"
 import {
   sendDuplicateSignupEmailAlert,
   sendVerificationEmail,
 } from "./send-email"
 import { admin } from "better-auth/plugins"
+import { db } from "database"
+import { drizzleAdapter } from "better-auth/adapters/drizzle";
 export const auth = betterAuth({
-  database: new Database("./sqlite.db"),
+  experimental: { joins: true },
+  database: drizzleAdapter(db, { 
+    provider: "sqlite",
+  } // or "pg" or "mysql"
+   ), 
   emailAndPassword: {
     enabled: true,
     requireEmailVerification: true,
