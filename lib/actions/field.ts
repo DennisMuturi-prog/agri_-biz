@@ -5,6 +5,7 @@ import { eq, desc } from "drizzle-orm"
 import { db } from "@/database"
 import { field } from "@/db/field"
 import { note } from "@/db/note"
+import { user } from "@/db/auth-schema"
 import { auth } from "@/lib/auth"
 import { headers } from "next/headers"
 import { revalidatePath } from "next/cache"
@@ -341,6 +342,63 @@ export async function getFieldNotes(fieldId: number): Promise<GetNotesResult> {
     return { success: true, notes }
   } catch (err) {
     console.error("getFieldNotes error:", err)
+    return {
+      success: false,
+      error:
+        err instanceof Error ? err.message : "An unexpected error occurred",
+    }
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Promote to Field Agent result type
+// ---------------------------------------------------------------------------
+export type PromoteResult =
+  | {
+      success: true
+      user: { id: string; name: string; email: string; role: string | null }
+    }
+  | { success: false; error: string }
+
+// ---------------------------------------------------------------------------
+// Server Action – Promote a user to field_agent (admin only)
+// ---------------------------------------------------------------------------
+export async function promoteToFieldAgent(
+  userId: string
+): Promise<PromoteResult> {
+  try {
+    const session = await auth.api.getSession({
+      headers: await headers(),
+    })
+
+    if (!session?.user) {
+      return { success: false, error: "You must be logged in" }
+    }
+
+    if (session.user.role !== "admin") {
+      return { success: false, error: "Only admins can promote users" }
+    }
+
+    const [updated] = await db
+      .update(user)
+      .set({ role: "field_agent" })
+      .where(eq(user.id, userId))
+      .returning({
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+      })
+
+    if (!updated) {
+      return { success: false, error: "User not found" }
+    }
+
+    revalidatePath("/dashboard/team")
+
+    return { success: true, user: updated }
+  } catch (err) {
+    console.error("promoteToFieldAgent error:", err)
     return {
       success: false,
       error:

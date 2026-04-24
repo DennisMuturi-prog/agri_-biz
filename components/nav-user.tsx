@@ -32,8 +32,7 @@ export function NavUser() {
   const {
     data: session,
     isPending, //loading state
-    error, //error object
-    refetch, //refetch the session
+    error //error object
   } = authClient.useSession()
 
   if (isPending) {
@@ -87,21 +86,6 @@ export function NavUser() {
                   </div>
                 </div>
               </DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              <DropdownMenuGroup>
-                <DropdownMenuItem>
-                  <CircleUserRoundIcon />
-                  Account
-                </DropdownMenuItem>
-                <DropdownMenuItem>
-                  <CreditCardIcon />
-                  Billing
-                </DropdownMenuItem>
-                <DropdownMenuItem>
-                  <BellIcon />
-                  Notifications
-                </DropdownMenuItem>
-              </DropdownMenuGroup>
               <DropdownMenuSeparator />
               <DropdownMenuItem
                 onClick={async () => {

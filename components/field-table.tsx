@@ -39,6 +39,9 @@ import {
 } from "@/lib/actions/field"
 import { useRouter } from "next/navigation"
 
+import type { FieldStatus } from "@/lib/field-status"
+import { Badge } from "@/components/ui/badge"
+
 function formatTimestampToDate(date: Date) {
   const day = String(date.getDate()).padStart(2, "0")
   const month = String(date.getMonth() + 1).padStart(2, "0")
@@ -62,6 +65,7 @@ type Field = {
   plantingDate: Date
   fieldStage: string
   currentStageId: number
+  status: FieldStatus
 }
 
 type Stage = {
@@ -72,6 +76,17 @@ type Stage = {
 type FieldTableBlockProps = {
   fields: Field[]
   stages: Stage[]
+}
+
+function StatusBadge({ status }: { status: FieldStatus }) {
+  const variant =
+    status === "Completed"
+      ? "default"
+      : status === "At Risk"
+        ? "destructive"
+        : "outline"
+
+  return <Badge variant={variant}>{status}</Badge>
 }
 
 export function FieldTable({ fields, stages }: FieldTableBlockProps) {
@@ -211,7 +226,9 @@ export function FieldTable({ fields, stages }: FieldTableBlockProps) {
                 <TableCell>
                   {formatTimestampToDate(field.plantingDate)}
                 </TableCell>
-                <TableCell>Active</TableCell>
+                <TableCell>
+                  <StatusBadge status={field.status} />
+                </TableCell>
                 <TableCell>{field.fieldStage}</TableCell>
                 <TableCell className="text-right">
                   <div className="flex items-center justify-end gap-1">

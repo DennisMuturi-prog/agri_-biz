@@ -29,6 +29,8 @@ import {
 } from "@/components/ui/select"
 import { updateFieldAgent, type UpdateAgentResult } from "@/lib/actions/field"
 import { useRouter } from "next/navigation"
+import type { FieldStatus } from "@/lib/field-status"
+import { Badge } from "@/components/ui/badge"
 
 function formatTimestampToDate(date: Date) {
   const day = String(date.getDate()).padStart(2, "0")
@@ -43,9 +45,11 @@ type Field = {
   cropType: string
   plantingDate: Date
   fieldStage: string
-  fieldAgentName: string
-  fieldAgentEmail: string
-  fieldAgentId: string
+  currentStageId: number
+  fieldAgentName: string | null
+  fieldAgentEmail: string | null
+  fieldAgentId: string | null
+  status: FieldStatus
 }
 
 type Agent = {
@@ -57,6 +61,17 @@ type Agent = {
 type FieldTableBlockProps = {
   fields: Field[]
   agents: Agent[]
+}
+
+function StatusBadge({ status }: { status: FieldStatus }) {
+  const variant =
+    status === "Completed"
+      ? "default"
+      : status === "At Risk"
+        ? "destructive"
+        : "outline"
+
+  return <Badge variant={variant}>{status}</Badge>
 }
 
 export function FieldAdminTable({ fields, agents }: FieldTableBlockProps) {
@@ -102,7 +117,7 @@ export function FieldAdminTable({ fields, agents }: FieldTableBlockProps) {
   return (
     <>
       <Table>
-        <TableCaption>A list of your fields</TableCaption>
+        <TableCaption>A list of all fields</TableCaption>
         <TableHeader>
           <TableRow>
             <TableHead className="w-25">Name</TableHead>
@@ -121,9 +136,21 @@ export function FieldAdminTable({ fields, agents }: FieldTableBlockProps) {
               <TableCell className="font-medium">{field.name}</TableCell>
               <TableCell>{field.cropType}</TableCell>
               <TableCell>{formatTimestampToDate(field.plantingDate)}</TableCell>
-              <TableCell>Active</TableCell>
-              <TableCell>{field.fieldAgentName}</TableCell>
-              <TableCell>{field.fieldAgentEmail}</TableCell>
+              <TableCell>
+                <StatusBadge status={field.status} />
+              </TableCell>
+              <TableCell>
+                {field.fieldAgentName ?? (
+                  <span className="text-muted-foreground italic">
+                    Unassigned
+                  </span>
+                )}
+              </TableCell>
+              <TableCell>
+                {field.fieldAgentEmail ?? (
+                  <span className="text-muted-foreground italic">—</span>
+                )}
+              </TableCell>
               <TableCell className="text-right">{field.fieldStage}</TableCell>
               <TableCell className="text-right">
                 <Button
