@@ -79,7 +79,7 @@ export default async function Page() {
     })
     .from(field)
     .innerJoin(fieldStage, eq(field.currentStageId, fieldStage.id))
-    .innerJoin(user, eq(field.fieldAgentId, user.id))
+    .leftJoin(user, eq(field.fieldAgentId, user.id))
 
   const allFields = isAdmin
     ? await fieldQuery
