@@ -1,3 +1,6 @@
+"use client"
+
+import { useState } from "react"
 import {
   Table,
   TableBody,
@@ -7,16 +10,35 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-function formatTimestampToDate(date:Date) {
+import { Button } from "@/components/ui/button"
+import { Pencil } from "lucide-react"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
+import { updateFieldAgent, type UpdateAgentResult } from "@/lib/actions/field"
+import { useRouter } from "next/navigation"
 
-  const day = String(date.getDate()).padStart(2, "0");
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const year = date.getFullYear();
-
-  return `${day}/${month}/${year}`;
+function formatTimestampToDate(date: Date) {
+  const day = String(date.getDate()).padStart(2, "0")
+  const month = String(date.getMonth() + 1).padStart(2, "0")
+  const year = date.getFullYear()
+  return `${day}/${month}/${year}`
 }
+
 type Field = {
-  id:number
+  id: number
   name: string
   cropType: string
   plantingDate: Date
@@ -25,38 +47,147 @@ type Field = {
   fieldAgentEmail: string
   fieldAgentId: string
 }
-type FieldTableBlockProps = {
-  fields: Field[]
+
+type Agent = {
+  id: string
+  name: string
+  email: string
 }
 
-export function FieldAdminTable({ fields }: FieldTableBlockProps) {
+type FieldTableBlockProps = {
+  fields: Field[]
+  agents: Agent[]
+}
+
+export function FieldAdminTable({ fields, agents }: FieldTableBlockProps) {
+  const router = useRouter()
+  const [selectedField, setSelectedField] = useState<Field | null>(null)
+  const [selectedAgentId, setSelectedAgentId] = useState<string>("__unassign__")
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [dialogOpen, setDialogOpen] = useState(false)
+
+  function handleEditClick(field: Field) {
+    setSelectedField(field)
+    setSelectedAgentId(field.fieldAgentId || "__unassign__")
+    setError(null)
+    setDialogOpen(true)
+  }
+
+  async function handleSave() {
+    if (!selectedField) return
+
+    setIsSubmitting(true)
+    setError(null)
+
+    const formData = new FormData()
+    formData.append("fieldId", selectedField.id.toString())
+    formData.append(
+      "agentId",
+      selectedAgentId === "__unassign__" ? "" : selectedAgentId
+    )
+
+    const result: UpdateAgentResult = await updateFieldAgent(formData)
+
+    if (result.success) {
+      setDialogOpen(false)
+      router.refresh()
+    } else {
+      setError(result.error)
+    }
+
+    setIsSubmitting(false)
+  }
+
   return (
-    <Table>
-      <TableCaption>A list of your fields</TableCaption>
-      <TableHeader>
-        <TableRow>
-          <TableHead className="w-[100px]">Name</TableHead>
-          <TableHead>Crop type</TableHead>
-          <TableHead>Planting date</TableHead>
-          <TableHead>Field status</TableHead>
-          <TableHead>Agent assigned</TableHead>
-          <TableHead>Agent email</TableHead>
-          <TableHead className="text-right">field stage</TableHead>
-        </TableRow>
-      </TableHeader>
-      <TableBody>
-        {fields.map((field) => (
-          <TableRow key={field.id}>
-            <TableCell className="font-medium">{field.name}</TableCell>
-            <TableCell>{field.cropType}</TableCell>
-            <TableCell>{formatTimestampToDate(field.plantingDate)}</TableCell>
-            <TableCell>Active</TableCell>
-            <TableCell>{field.fieldAgentName}</TableCell>
-            <TableCell>{field.fieldAgentEmail}</TableCell>
-            <TableCell className="text-right">{field.fieldStage}</TableCell>
+    <>
+      <Table>
+        <TableCaption>A list of your fields</TableCaption>
+        <TableHeader>
+          <TableRow>
+            <TableHead className="w-25">Name</TableHead>
+            <TableHead>Crop type</TableHead>
+            <TableHead>Planting date</TableHead>
+            <TableHead>Field status</TableHead>
+            <TableHead>Agent assigned</TableHead>
+            <TableHead>Agent email</TableHead>
+            <TableHead className="text-right">Field stage</TableHead>
+            <TableHead className="text-right">Actions</TableHead>
           </TableRow>
-        ))}
-      </TableBody>
-    </Table>
+        </TableHeader>
+        <TableBody>
+          {fields.map((field) => (
+            <TableRow key={field.id}>
+              <TableCell className="font-medium">{field.name}</TableCell>
+              <TableCell>{field.cropType}</TableCell>
+              <TableCell>{formatTimestampToDate(field.plantingDate)}</TableCell>
+              <TableCell>Active</TableCell>
+              <TableCell>{field.fieldAgentName}</TableCell>
+              <TableCell>{field.fieldAgentEmail}</TableCell>
+              <TableCell className="text-right">{field.fieldStage}</TableCell>
+              <TableCell className="text-right">
+                <Button
+                  variant="outline"
+                  size="icon-sm"
+                  onClick={() => handleEditClick(field)}
+                >
+                  <Pencil />
+                </Button>
+              </TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+
+      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Reassign field agent</DialogTitle>
+            <DialogDescription>
+              Change the agent assigned to{" "}
+              <strong>{selectedField?.name}</strong>.
+            </DialogDescription>
+          </DialogHeader>
+
+          {selectedField && (
+            <div className="py-2">
+              <Select
+                value={selectedAgentId}
+                onValueChange={setSelectedAgentId}
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Select an agent" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__unassign__">Unassign</SelectItem>
+                  {agents.map((agent) => (
+                    <SelectItem key={agent.id} value={agent.id}>
+                      {agent.name} ({agent.email})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
+              {error && (
+                <p className="mt-2 text-sm text-destructive">{error}</p>
+              )}
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setDialogOpen(false)}
+              disabled={isSubmitting}
+            >
+              Cancel
+            </Button>
+            <Button onClick={handleSave} disabled={isSubmitting}>
+              {isSubmitting ? "Saving..." : "Save"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
   )
 }

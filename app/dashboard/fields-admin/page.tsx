@@ -8,6 +8,13 @@ import { fieldStage } from "@/db/field-stage"
 import Link from "next/link"
 import { FieldAdminTable } from "@/components/field-table-admin"
 import { user } from "@/db/auth-schema"
+
+type Agent = {
+  id: string
+  name: string
+  email: string
+}
+
 export default async function Page() {
   const session = await auth.api.getSession({
     headers: await headers(),
@@ -23,6 +30,7 @@ export default async function Page() {
       </div>
     )
   }
+
   const fields = await db
     .select({
       id: field.id,
@@ -31,15 +39,25 @@ export default async function Page() {
       cropType: field.cropType,
       fieldStage: fieldStage.name,
       fieldAgentName: user.name,
-      fieldAgentEmail:user.email,
+      fieldAgentEmail: user.email,
       fieldAgentId: user.id,
     })
     .from(field)
     .innerJoin(fieldStage, eq(field.currentStageId, fieldStage.id))
     .innerJoin(user, eq(field.fieldAgentId, user.id))
+
+  const agents: Agent[] = await db
+    .select({
+      id: user.id,
+      name: user.name,
+      email: user.email,
+    })
+    .from(user)
+    .where(eq(user.role, "field_agent"))
+
   return (
     <div>
-      <FieldAdminTable fields={fields} />
+      <FieldAdminTable fields={fields} agents={agents} />
     </div>
   )
 }
