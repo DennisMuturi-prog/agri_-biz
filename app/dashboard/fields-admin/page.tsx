@@ -38,7 +38,7 @@ export default async function Page() {
     )
   }
 
-  const rawFields = await db
+  const rawFieldsPromise = db
     .select({
       id: field.id,
       name: field.name,
@@ -53,6 +53,20 @@ export default async function Page() {
     .from(field)
     .innerJoin(fieldStage, eq(field.currentStageId, fieldStage.id))
     .leftJoin(user, eq(field.fieldAgentId, user.id))
+
+  const agentsPromise = db
+    .select({
+      id: user.id,
+      name: user.name,
+      email: user.email,
+    })
+    .from(user)
+    .where(eq(user.role, "field_agent"))
+
+  const [rawFields, agents] = await Promise.all([
+    rawFieldsPromise,
+    agentsPromise,
+  ])
 
   // Fetch note counts and latest note timestamps per field
   const fieldIds = rawFields.map((f) => f.id)
@@ -102,15 +116,6 @@ export default async function Page() {
     })
     return { ...f, status }
   })
-
-  const agents: Agent[] = await db
-    .select({
-      id: user.id,
-      name: user.name,
-      email: user.email,
-    })
-    .from(user)
-    .where(eq(user.role, "field_agent"))
 
   return (
     <div className="flex flex-1 flex-col">

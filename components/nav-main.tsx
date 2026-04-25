@@ -9,22 +9,23 @@ import {
 } from "@/components/ui/sidebar"
 import { CirclePlusIcon } from "lucide-react"
 import { useRouter, usePathname } from "next/navigation"
-import { authClient } from "@/lib/auth-client"
+import { Badge } from "@/components/ui/badge"
 
 export function NavMain({
   items,
+  isAdmin = false,
+  unassignedCount = 0,
 }: {
   items: {
     title: string
     url: string
     icon?: React.ReactNode
   }[]
+  isAdmin?: boolean
+  unassignedCount?: number
 }) {
   const router = useRouter()
   const pathname = usePathname()
-  const { data: session } = authClient.useSession()
-
-  const isAdmin = session?.user?.role === "admin"
 
   function isActiveRoute(itemUrl: string): boolean {
     if (pathname === itemUrl) return true
@@ -76,6 +77,16 @@ export function NavMain({
                 >
                   {item.icon}
                   <span>{item.title}</span>
+                  {item.title === "Team" && isAdmin && unassignedCount > 0 && (
+                    <div className="ml-auto animate-pulse">
+                      <Badge
+                        variant="destructive"
+                        className="h-5 animate-bounce px-1.5 text-[10px] animation-duration-[2s]"
+                      >
+                        {unassignedCount}
+                      </Badge>
+                    </div>
+                  )}
                 </SidebarMenuButton>
               </SidebarMenuItem>
             )

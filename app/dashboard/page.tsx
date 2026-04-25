@@ -64,6 +64,8 @@ export default async function Page() {
 
   const isAdmin = session.user.role === "admin"
 
+  // ── Kick off all independent queries in parallel ──────────────────────
+
   // Build the field query – filtered by agent for non-admins
   const fieldQuery = db
     .select({
@@ -81,27 +83,33 @@ export default async function Page() {
     .innerJoin(fieldStage, eq(field.currentStageId, fieldStage.id))
     .leftJoin(user, eq(field.fieldAgentId, user.id))
 
-  const allFields = isAdmin
-    ? await fieldQuery
-    : await fieldQuery.where(eq(field.fieldAgentId, session.user.id))
+  const fieldsPromise = isAdmin
+    ? fieldQuery
+    : fieldQuery.where(eq(field.fieldAgentId, session.user.id))
 
-  // Stage breakdown
-  const stageBreakdown = await db
-    .select({
-      name: fieldStage.name,
-      count: sql<number>`cast(count(${field.id}) as int)`,
-    })
-    .from(fieldStage)
-    .leftJoin(field, eq(field.currentStageId, fieldStage.id))
-    .groupBy(fieldStage.id, fieldStage.name)
-    .orderBy(fieldStage.id)
+  const stageBreakdownPromise = isAdmin
+    ? db
+        .select({
+          name: fieldStage.name,
+          count: sql<number>`cast(count(${field.id}) as int)`,
+        })
+        .from(fieldStage)
+        .leftJoin(field, eq(field.currentStageId, fieldStage.id))
+        .groupBy(fieldStage.id, fieldStage.name)
+        .orderBy(fieldStage.id)
+    : db
+        .select({
+          name: fieldStage.name,
+          count: sql<number>`cast(count(${field.id}) as int)`,
+        })
+        .from(fieldStage)
+        .leftJoin(field, eq(field.currentStageId, fieldStage.id))
+        .where(eq(field.fieldAgentId, session.user.id))
+        .groupBy(fieldStage.id, fieldStage.name)
+        .orderBy(fieldStage.id)
 
-  // Total field count
-  const totalFields = allFields.length
-
-  // Recent notes activity (last 5)
-  const recentNotes = isAdmin
-    ? await db
+  const recentNotesPromise = isAdmin
+    ? db
         .select({
           id: note.id,
           observation: note.observation,
@@ -112,7 +120,7 @@ export default async function Page() {
         .innerJoin(field, eq(note.fieldId, field.id))
         .orderBy(desc(note.createdAt))
         .limit(5)
-    : await db
+    : db
         .select({
           id: note.id,
           observation: note.observation,
@@ -125,9 +133,8 @@ export default async function Page() {
         .orderBy(desc(note.createdAt))
         .limit(5)
 
-  // Crop type breakdown for admin
-  const cropBreakdown = isAdmin
-    ? await db
+  const cropBreakdownPromise = isAdmin
+    ? db
         .select({
           cropType: field.cropType,
           count: sql<number>`cast(count(*) as int)`,
@@ -138,9 +145,8 @@ export default async function Page() {
         .limit(5)
     : null
 
-  // Agent workload for admin (top 5 agents with most fields)
-  const agentWorkload = isAdmin
-    ? await db
+  const agentWorkloadPromise = isAdmin
+    ? db
         .select({
           name: user.name,
           email: user.email,
@@ -154,7 +160,18 @@ export default async function Page() {
         .limit(5)
     : null
 
+  // ── Await all at once ─────────────────────────────────────────────────
+  const [allFields, stageBreakdown, recentNotes, cropBreakdown, agentWorkload] =
+    await Promise.all([
+      fieldsPromise,
+      stageBreakdownPromise,
+      recentNotesPromise,
+      cropBreakdownPromise,
+      agentWorkloadPromise,
+    ])
+
   // Insights
+  const totalFields = allFields.length
   const totalStages = stageBreakdown.reduce((acc, s) => acc + s.count, 0)
   const harvestedCount =
     stageBreakdown.find((s) => s.name === "Harvested")?.count ?? 0

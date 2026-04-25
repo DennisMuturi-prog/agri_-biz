@@ -1,7 +1,7 @@
 "use server"
 
 import { z } from "zod"
-import { eq, desc } from "drizzle-orm"
+import { eq, desc, sql } from "drizzle-orm"
 import { db } from "@/database"
 import { field } from "@/db/field"
 import { note } from "@/db/note"
@@ -399,6 +399,46 @@ export async function promoteToFieldAgent(
     return { success: true, user: updated }
   } catch (err) {
     console.error("promoteToFieldAgent error:", err)
+    return {
+      success: false,
+      error:
+        err instanceof Error ? err.message : "An unexpected error occurred",
+    }
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Get Unassigned User Count result type
+// ---------------------------------------------------------------------------
+export type UnassignedCountResult =
+  | { success: true; count: number }
+  | { success: false; error: string }
+
+// ---------------------------------------------------------------------------
+// Server Action – Count unassigned users (users with no role)
+// ---------------------------------------------------------------------------
+export async function getUnassignedUserCount(): Promise<UnassignedCountResult> {
+  try {
+    const session = await auth.api.getSession({
+      headers: await headers(),
+    })
+
+    if (!session?.user) {
+      return { success: false, error: "You must be logged in" }
+    }
+
+    if (session.user.role !== "admin") {
+      return { success: false, error: "Only admins can view this" }
+    }
+
+    const result = await db
+      .select({ count: sql<number>`cast(count(*) as int)` })
+      .from(user)
+      .where(sql`${user.role} IS NULL`)
+
+    return { success: true, count: result[0]?.count ?? 0 }
+  } catch (err) {
+    console.error("getUnassignedUserCount error:", err)
     return {
       success: false,
       error:

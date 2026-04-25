@@ -2,9 +2,8 @@
 
 import * as React from "react"
 
-import { NavDocuments } from "@/components/nav-documents"
 import { NavMain } from "@/components/nav-main"
-import { NavSecondary } from "@/components/nav-secondary"
+
 import { NavUser } from "@/components/nav-user"
 import {
   Sidebar,
@@ -49,7 +48,14 @@ const data = {
   ],
 }
 
-export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
+export function AppSidebar({
+  isAdmin = false,
+  unassignedCount = 0,
+  ...props
+}: React.ComponentProps<typeof Sidebar> & {
+  isAdmin?: boolean
+  unassignedCount?: number
+}) {
   return (
     <Sidebar collapsible="offcanvas" {...props}>
       <SidebarHeader>
@@ -68,7 +74,11 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         </SidebarMenu>
       </SidebarHeader>
       <SidebarContent>
-        <NavMain items={data.navMain} />
+        <NavMain
+          items={data.navMain}
+          isAdmin={isAdmin}
+          unassignedCount={unassignedCount}
+        />
       </SidebarContent>
       <SidebarFooter>
         <NavUser />

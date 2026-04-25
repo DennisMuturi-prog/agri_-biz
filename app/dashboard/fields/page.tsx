@@ -25,8 +25,9 @@ export default async function Page() {
     redirect("/dashboard/fields-admin")
   }
 
-  // Fetch fields with their stage info
-  const rawFields = await db
+  // ── Kick off independent queries in parallel ──────────────────────────
+
+  const rawFieldsPromise = db
     .select({
       id: field.id,
       name: field.name,
@@ -38,6 +39,18 @@ export default async function Page() {
     .from(field)
     .where(eq(field.fieldAgentId, session.user.id))
     .innerJoin(fieldStage, eq(field.currentStageId, fieldStage.id))
+
+  const stagesPromise = db
+    .select({
+      id: fieldStage.id,
+      name: fieldStage.name,
+    })
+    .from(fieldStage)
+
+  const [rawFields, stages] = await Promise.all([
+    rawFieldsPromise,
+    stagesPromise,
+  ])
 
   // Fetch note counts and latest note timestamps per field
   const fieldIds = rawFields.map((f) => f.id)
@@ -88,13 +101,6 @@ export default async function Page() {
     })
     return { ...f, status }
   })
-
-  const stages = await db
-    .select({
-      id: fieldStage.id,
-      name: fieldStage.name,
-    })
-    .from(fieldStage)
 
   return (
     <div className="flex flex-1 flex-col">
